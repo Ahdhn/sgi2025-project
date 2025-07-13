@@ -19,5 +19,7 @@ int main(int argc, char* argv[])
 
     igl::read_triangle_mesh(input, V, F);
 
+    polyscope::registerSurfaceMesh(input, V, F);
+
     polyscope::show();
 }
