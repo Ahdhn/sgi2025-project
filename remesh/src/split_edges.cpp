@@ -49,15 +49,17 @@ void split_edges(Eigen::MatrixXd & V, Eigen::MatrixXi & F, Eigen::MatrixXi & E0,
         if(uE2E[j][0]>=(2*m)){
             add0 = 4*num_edges_to_split;
         }
-        uE2E[j][0] = uE2E[j][0]+add0;
+        uE2E[j][0] = uE2E[j][0] + add0;
+        if (uE2E[j].size() > 1) {
         int add1 = 0;
-        if(uE2E[j][1]>=m){
-            add1 = 2*num_edges_to_split;
+            if (uE2E[j][1] >= m) {
+                add1 = 2 * num_edges_to_split;
         }
-        if(uE2E[j][1]>=(2*m)){
-            add1 = 4*num_edges_to_split;
+            if (uE2E[j][1] >= (2 * m)) {
+                add1 = 4 * num_edges_to_split;
         }
-        uE2E[j][1] = uE2E[j][1]+add1;
+            uE2E[j][1] = uE2E[j][1] + add1;
+        }
     }
     // I guess it only adds more linear time...
 
