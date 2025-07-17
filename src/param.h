@@ -3,15 +3,15 @@
 #include <TinyAD/Utils/LineSearch.hh>
 #include <TinyAD/Utils/NewtonDirection.hh>
 #include "TutteEmbeddingIGL.h"
+
 template <typename PassiveT>
 Eigen::Matrix<PassiveT, Eigen::Dynamic, 2> param(const Eigen::MatrixXd& V,
                                                  const Eigen::MatrixXi& F)
 {
-
     // Use the embedding to return the regular cordinates for the embedding
     Eigen::MatrixXd TutteEmbedding = tutte_embedding(V, F);
 
-    //Define the local coordinates for ach triangle using the first vector and the 
+    //Define the local coordinates for ach triangle using the first vector and the
     //normal to make coords.
     std::vector<Eigen::Matrix<double, 2, 3>> flattened_ref_triangles;
     flattened_ref_triangles.reserve(F.rows());
