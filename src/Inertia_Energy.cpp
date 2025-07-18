@@ -1,6 +1,7 @@
 #include <Eigen/SparseCore>
 #include <stdexcept>
 #include <tuple>
+#include <igl/triangulated_grid.h>
 #include <vector>
 using namespace std;
 
