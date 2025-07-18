@@ -12,6 +12,7 @@ list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 include(libigl)
 include(tinyad)
 include(polyscope)
+include(stb)
 
 igl_include(core)
 
@@ -30,6 +31,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
   igl::core
   polyscope
   TinyAD
+  stb_image           
 )
 
 target_include_directories(${PROJECT_NAME}
