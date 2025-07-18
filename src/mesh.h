@@ -11,15 +11,16 @@ namespace locremesh {
 class Mesh
 {
    public:
-   Mesh() = default;
+    Mesh() = default;
 
-   Mesh(std::string filename, std::string polyscopeID)
+    Mesh(std::string filename, std::string polyscopeID = "mesh")
         : m_polyscopeID(polyscopeID)
     {
         if (!igl::read_triangle_mesh(filename, m_vertices, m_faces)) {
             throw std::runtime_error("Could not load mesh from " + filename);
         }
         calculateMeshQuality();
+        calculateUVParametrization();
         identifyBoundaryVertices();
     }
 
@@ -27,6 +28,7 @@ class Mesh
         : m_vertices(vertices), m_faces(faces)
     {
         calculateMeshQuality();
+        calculateUVParametrization();
         identifyBoundaryVertices();
     }
 
@@ -35,13 +37,19 @@ class Mesh
           m_vertices(other.m_vertices),
           m_faces(other.m_faces),
           m_quality(other.m_quality),
+          m_uvCoords(other.m_uvCoords),
           m_boundaryBitMask(other.m_boundaryBitMask)
     {
     }
 
-    void          polyscopeRegister();
-    std::set<int> getVertexNeighbors(int vertexIdx);
 
+    polyscope::SurfaceMesh* polyscopeRegisterSurfaceMesh();
+    void                    calculateMeshQuality();
+    void                    calculateUVParametrization();
+    void                    identifyBoundaryVertices();
+    std::set<int>           getVertexNeighbors(int vertexIdx);
+
+    // Get methods -------------------------------------------------------------
     const Eigen::MatrixXd& getVertices() const
     {
         return m_vertices;
@@ -78,16 +86,18 @@ class Mesh
     {
         return m_polyscopeID;
     }
+    void setPolyscopeID(std::string polyscopeID)
+    {
+        m_polyscopeID = polyscopeID;
+    }
+
 
    private:
-    // Private data members ////////////////////////////////////////////////////
-    void calculateMeshQuality();
-    void identifyBoundaryVertices();
-
     std::string       m_polyscopeID;
     Eigen::MatrixXd   m_vertices;
     Eigen::MatrixXi   m_faces;
     Eigen::VectorXd   m_quality;
+    Eigen::MatrixXd   m_uvCoords;
     std::vector<bool> m_boundaryBitMask;
 };
 }  // namespace locremesh

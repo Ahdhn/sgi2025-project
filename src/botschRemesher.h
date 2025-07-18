@@ -19,25 +19,23 @@ class BotschRemesher
     BotschRemesher(VertexSelector& vertexSelector,
                    float           initialTargetEdgeLength,
                    int             initialIterations,
-                   bool            initialShouldProject,
-                   std::string     remeshedMeshPSID)
+                   bool            initialShouldProject)
         : m_vertexSelector(vertexSelector),
           m_targetEdgeLength(initialTargetEdgeLength),
           m_iterations(initialIterations),
           m_shouldProject(initialShouldProject),
-          m_polyscopeID(remeshedMeshPSID)
+          m_resultingMesh(vertexSelector.getTargetMesh())
     {
     }
 
     void setFeature();
-    void remesh();
+    void remesh(std::string resultingMeshPolyscopeID = "botschRemeshed");
     void polyscopeUISection();
 
    public:
     VertexSelector& m_vertexSelector;
-    Mesh            m_resultingMesh;
-    std::string     m_polyscopeID;
-    bool            m_ignoreBoundaryPoints = true;
+    Mesh&           m_resultingMesh;
+    bool            m_keepOriginalMesh = true;
     float           m_targetEdgeLength;
     int             m_iterations;
     bool            m_shouldProject;

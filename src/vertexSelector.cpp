@@ -2,16 +2,16 @@
 
 namespace locremesh {
 
-void VertexSelector::selectVerticesBasedOnQuality(double threshold)
+void VertexSelector::selectVerticesBasedOnQuality()
 {
-    m_selectedVerticesBitMask.assign(m_targetMesh.getVertices().rows(), false);
+    m_selectionBitMask.assign(m_targetMesh.getVertices().rows(), false);
     const Eigen::VectorXd& quality = m_targetMesh.getQuality();
     for (int i = 0; i < quality.size(); ++i) {
-        if (quality[i] <= threshold) {
-            auto face                          = m_targetMesh.getFaces().row(i);
-            m_selectedVerticesBitMask[face[0]] = true;
-            m_selectedVerticesBitMask[face[1]] = true;
-            m_selectedVerticesBitMask[face[2]] = true;
+        if (quality[i] <= m_qualityThreshold) {
+            auto face                   = m_targetMesh.getFaces().row(i);
+            m_selectionBitMask[face[0]] = true;
+            m_selectionBitMask[face[1]] = true;
+            m_selectionBitMask[face[2]] = true;
         }
     }
     m_wasSelectionModified = true;
@@ -21,8 +21,8 @@ void VertexSelector::updateSelectedVertices()
 {
     // Clear previous data
     std::set<int> selectedVertices;
-    for (int i = 0; i < m_selectedVerticesBitMask.size(); i++) {
-        if (m_selectedVerticesBitMask[i]) {
+    for (int i = 0; i < m_selectionBitMask.size(); i++) {
+        if (m_selectionBitMask[i]) {
             selectedVertices.insert(i);
         }
     }
@@ -74,7 +74,7 @@ void VertexSelector::handleManualVertexSelection(ImGuiIO& io)
                 std::cout << "clicked vertex " << meshPickResult.index
                           << std::endl;
 
-                m_selectedVerticesBitMask[meshPickResult.index] = true;
+                m_selectionBitMask[meshPickResult.index] = true;
 
                 if (!m_wasSelectionModified)
                     m_wasSelectionModified = true;
@@ -100,12 +100,9 @@ void VertexSelector::handleManualVertexSelection(ImGuiIO& io)
                           << std::endl;
 
                 Eigen::MatrixXi faces = m_targetMesh.getFaces();
-                m_selectedVerticesBitMask[faces(meshPickResult.index, 0)] =
-                    true;
-                m_selectedVerticesBitMask[faces(meshPickResult.index, 1)] =
-                    true;
-                m_selectedVerticesBitMask[faces(meshPickResult.index, 2)] =
-                    true;
+                m_selectionBitMask[faces(meshPickResult.index, 0)] = true;
+                m_selectionBitMask[faces(meshPickResult.index, 1)] = true;
+                m_selectionBitMask[faces(meshPickResult.index, 2)] = true;
 
                 if (!m_wasSelectionModified)
                     m_wasSelectionModified = true;
@@ -134,8 +131,7 @@ void VertexSelector::polyscopeUISection()
     }
 
     if (ImGui::Button("Select All")) {
-        m_selectedVerticesBitMask.assign(m_selectedVerticesBitMask.size(),
-                                         true);
+        m_selectionBitMask.assign(m_selectionBitMask.size(), true);
         m_wasSelectionModified = true;
     }
 
@@ -147,12 +143,11 @@ void VertexSelector::polyscopeUISection()
         "Quality Threshold", &m_qualityThreshold, 0.0f, 1.0f, "%.2f");
 
     if (ImGui::Button("Select Based on Quality")) {
-        selectVerticesBasedOnQuality(m_qualityThreshold);
+        selectVerticesBasedOnQuality();
     }
 
     if (ImGui::Button("Clear Selection")) {
-        m_selectedVerticesBitMask.assign(m_selectedVerticesBitMask.size(),
-                                         false);
+        m_selectionBitMask.assign(m_selectionBitMask.size(), false);
         if (polyscope::hasPointCloud(m_selectedVerticesPointCloudPSID)) {
             polyscope::removePointCloud(m_selectedVerticesPointCloudPSID);
         }
@@ -166,17 +161,17 @@ void VertexSelector::applyOneRingDilation()
 {
     // For each selected vertex, identify all its neightbors and select them as
     // well
-    std::vector<bool> newSelection = m_selectedVerticesBitMask;
-    for (int i = 0; i < m_selectedVerticesBitMask.size(); ++i) {
-        if (m_selectedVerticesBitMask[i]) {
+    std::vector<bool> newSelection = m_selectionBitMask;
+    for (int i = 0; i < m_selectionBitMask.size(); ++i) {
+        if (m_selectionBitMask[i]) {
             // This vertex is selected, now select its neighbors
             for (int neighborIdx : m_targetMesh.getVertexNeighbors(i)) {
                 newSelection[neighborIdx] = true;
             }
         }
     }
-    m_selectedVerticesBitMask = newSelection;
-    m_wasSelectionModified    = true;
+    m_selectionBitMask     = newSelection;
+    m_wasSelectionModified = true;
 }
 
 };  // namespace locremesh

@@ -1,19 +1,32 @@
 #include "mesh.h"
+#include "param.h"
 
 namespace locremesh {
 
-void Mesh::polyscopeRegister()
+polyscope::SurfaceMesh* Mesh::polyscopeRegisterSurfaceMesh()
 {
-    auto quality = locremesh::indFuncTriangleQuality(m_vertices, m_faces);
+    assert(m_quality.size() == m_faces.rows());  // Quality has been calculated
+    assert(m_uvCoords.rows() == m_vertices.rows() && m_uvCoords.cols() == 2);
+
+    if (polyscope::hasSurfaceMesh(m_polyscopeID)) {
+        polyscope::removeSurfaceMesh(m_polyscopeID);
+    }
 
     auto psSurfaceMesh =
         polyscope::registerSurfaceMesh(m_polyscopeID, m_vertices, m_faces);
-    psSurfaceMesh->setEdgeWidth(1.0);
+    psSurfaceMesh->setEdgeWidth(0.8f);
 
+    // Add Parametrization
+    auto psVertexParam =
+        psSurfaceMesh->addVertexParameterizationQuantity("UV Map", m_uvCoords);
+    psVertexParam->setEnabled(true);
+
+    // Add Triangle Quality
     auto psFaceScalar =
         psSurfaceMesh->addFaceScalarQuantity("Quality", m_quality);
     psFaceScalar->setMapRange(std::make_pair<int, int>(0, 1));
-    psFaceScalar->setEnabled(true);
+
+    return psSurfaceMesh;
 }
 
 void Mesh::identifyBoundaryVertices()
@@ -26,11 +39,15 @@ void Mesh::identifyBoundaryVertices()
     }
 }
 
+void Mesh::calculateUVParametrization()
+{
+    m_uvCoords = param<double>(m_vertices, m_faces);
+}
+
 void Mesh::calculateMeshQuality()
 {
     m_quality = indFuncTriangleQuality(m_vertices, m_faces);
 }
-
 
 std::set<int> Mesh::getVertexNeighbors(int vertexIdx)
 {

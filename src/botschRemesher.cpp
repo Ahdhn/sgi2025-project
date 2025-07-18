@@ -9,8 +9,6 @@ namespace locremesh {
  * Sets the feature vector for the remesh_botsch function.
  * It is essentially the list of indices of the vertices we don't want to be
  * altered during the remeshing.
- *
- * @param targetMesh The
  */
 void BotschRemesher::setFeature()
 {
@@ -32,7 +30,7 @@ void BotschRemesher::setFeature()
     }
 }
 
-void BotschRemesher::remesh()
+void BotschRemesher::remesh(std::string resultingMeshPolyscopeID)
 {
     setFeature();
 
@@ -45,13 +43,20 @@ void BotschRemesher::remesh()
     Eigen::VectorXd targetEdgeLengthsVector = Eigen::VectorXd::Constant(
         targetMesh.getVertices().rows(), m_targetEdgeLength);
 
-    m_resultingMesh = targetMesh;
+    // Create a copy of the mesh
+    if (m_keepOriginalMesh) {
+        m_resultingMesh = Mesh(targetMesh);
+    }
+
+    m_resultingMesh.setPolyscopeID(resultingMeshPolyscopeID);
     remesh_botsch(m_resultingMesh.getVertices(),
                   m_resultingMesh.getFaces(),
                   targetEdgeLengthsVector,
                   m_iterations,
                   m_feature,
                   m_shouldProject);
+    m_resultingMesh.calculateMeshQuality();
+    m_resultingMesh.calculateUVParametrization();
 }
 
 void BotschRemesher::polyscopeUISection()
@@ -63,6 +68,7 @@ void BotschRemesher::polyscopeUISection()
     ImGui::SliderInt("Iterations", &m_iterations, 1, 100);
     ImGui::Checkbox("Project resulting mesh onto the original",
                     &m_shouldProject);
+    ImGui::Checkbox("Keep original mesh", &m_keepOriginalMesh);
 
     if (ImGui::Button("Remesh")) {
         try {
@@ -73,30 +79,16 @@ void BotschRemesher::polyscopeUISection()
             std::cerr << "Error during remeshing: " << e.what() << std::endl;
             return;
         }
-
-        // Use polyscope to render the resulting mesh
-
-        if (polyscope::hasSurfaceMesh(m_polyscopeID)) {
-            polyscope::removeSurfaceMesh(m_polyscopeID);
+        // Update polyscope mesh
+        auto sm = m_resultingMesh.polyscopeRegisterSurfaceMesh();
+        if (m_keepOriginalMesh) {
+            sm->setPosition({0, 0, 1});
         }
-
-        auto sm = polyscope::registerSurfaceMesh(m_polyscopeID,
-                                                 m_resultingMesh.getVertices(),
-                                                 m_resultingMesh.getFaces());
-        sm->setEdgeWidth(1.0);
-        sm->setPosition(glm::vec3(1.5f, 0.0f, 0.0f));
-
-        auto fs = sm->addFaceScalarQuantity(
-            "Quality",
-            indFuncTriangleQuality(m_resultingMesh.getVertices(),
-                                   m_resultingMesh.getFaces()));
-        fs->setMapRange(std::make_pair<int, int>(0, 1));
-        fs->setEnabled(true);
     }
 
     if (ImGui::Button("Reset")) {
-        if (polyscope::hasSurfaceMesh(m_polyscopeID)) {
-            polyscope::removeSurfaceMesh(m_polyscopeID);
+        if (polyscope::hasSurfaceMesh(m_resultingMesh.getPolyscopeID())) {
+            polyscope::removeSurfaceMesh(m_resultingMesh.getPolyscopeID());
         }
     }
 }
