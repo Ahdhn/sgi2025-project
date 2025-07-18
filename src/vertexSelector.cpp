@@ -4,7 +4,7 @@ namespace locremesh {
 
 void VertexSelector::selectVerticesBasedOnQuality()
 {
-    m_selectionBitMask.assign(m_targetMesh.getVertices().rows(), false);
+    m_selectionBitMask.assign(m_targetMesh.getVertexCount(), false);
     const Eigen::VectorXd& quality = m_targetMesh.getQuality();
     for (int i = 0; i < quality.size(); ++i) {
         if (quality[i] <= m_qualityThreshold) {
@@ -131,7 +131,7 @@ void VertexSelector::polyscopeUISection()
     }
 
     if (ImGui::Button("Select All")) {
-        m_selectionBitMask.assign(m_selectionBitMask.size(), true);
+        m_selectionBitMask.assign(m_targetMesh.getVertexCount(), true);
         m_wasSelectionModified = true;
     }
 

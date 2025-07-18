@@ -36,12 +36,12 @@ void BotschRemesher::remesh(std::string resultingMeshPolyscopeID)
 
     auto targetMesh = m_vertexSelector.getTargetMesh();
 
-    if (m_feature.size() == targetMesh.getVertices().rows()) {
+    if (m_feature.size() == targetMesh.getVertexCount()) {
         throw std::runtime_error("No vertices were selected for remeshing.");
     }
 
     Eigen::VectorXd targetEdgeLengthsVector = Eigen::VectorXd::Constant(
-        targetMesh.getVertices().rows(), m_targetEdgeLength);
+        targetMesh.getVertexCount(), m_targetEdgeLength);
 
     // Create a copy of the mesh
     if (m_keepOriginalMesh) {

@@ -50,6 +50,14 @@ class Mesh
     std::set<int>           getVertexNeighbors(int vertexIdx);
 
     // Get methods -------------------------------------------------------------
+    const int getVertexCount() const
+    {
+        return m_vertices.rows();
+    }
+    const int getFaceCount() const
+    {
+        return m_faces.rows();
+    }
     const Eigen::MatrixXd& getVertices() const
     {
         return m_vertices;

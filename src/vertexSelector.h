@@ -19,7 +19,7 @@ class VertexSelector
    public:
     VertexSelector(Mesh& targetMesh) : m_targetMesh(targetMesh)
     {
-        m_selectionBitMask.assign(m_targetMesh.getVertices().rows(), false);
+        m_selectionBitMask.assign(m_targetMesh.getVertexCount(), false);
     }
 
     void applyOneRingDilation();
