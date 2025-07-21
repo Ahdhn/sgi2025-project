@@ -1,18 +1,25 @@
 #include <TinyAD/ScalarFunction.hh>
 #include <TinyAD/Utils/Helpers.hh>
 #include <TinyAD/Utils/LineSearch.hh>
+#include <TinyAD/Utils/NewtonDecrement.hh>
 #include <TinyAD/Utils/NewtonDirection.hh>
+#include <iostream>
 #include "TutteEmbeddingIGL.h"
 
 template <typename PassiveT>
-Eigen::Matrix<PassiveT, Eigen::Dynamic, 2> param(const Eigen::MatrixXd& V,
-                                                 const Eigen::MatrixXi& F)
+Eigen::Matrix<PassiveT, Eigen::Dynamic, 2> param(
+    const Eigen::MatrixXd& V,
+    const Eigen::MatrixXi& F,
+    Eigen::MatrixXd&       previousParam,
+    const int              numMaxIterations = 30)
 {
-    // Use the embedding to return the regular cordinates for the embedding
-    Eigen::MatrixXd TutteEmbedding = tutte_embedding(V, F);
+    bool shouldCheckForFlip = true;
+    if (previousParam.size() == 0) {
+        previousParam = tutte_embedding(V, F);
+    }
 
-    //Define the local coordinates for ach triangle using the first vector and the
-    //normal to make coords.
+    // Define the local coordinates for ach triangle using the first vector and
+    // the normal to make coords.
     std::vector<Eigen::Matrix<double, 2, 3>> flattened_ref_triangles;
     flattened_ref_triangles.reserve(F.rows());
     for (int i = 0; i < F.rows(); ++i) {
@@ -31,8 +38,8 @@ Eigen::Matrix<PassiveT, Eigen::Dynamic, 2> param(const Eigen::MatrixXd& V,
         flattened_ref_triangles.push_back(tri2D);
     }
 
-    //This is the function which we will optimize, it hopefully returns the energies
-    //for all the faces as a lambda function?
+    // This is the function which we will optimize, it hopefully returns the
+    // energies for all the faces as a lambda function?
     auto func = TinyAD::scalar_function<2, PassiveT>(TinyAD::range(V.rows()),
                                                      TinyAD::EvalSettings{});
     func.template add_elements<3>(
@@ -63,19 +70,55 @@ Eigen::Matrix<PassiveT, Eigen::Dynamic, 2> param(const Eigen::MatrixXd& V,
                    (PassiveT)F.rows();
         });
     Eigen::VectorX<PassiveT> x = func.x_from_data(
-        [&](Eigen::Index v_idx) { return TutteEmbedding.row(v_idx); });
+        [&](Eigen::Index v_idx) { return previousParam.row(v_idx); });
     TinyAD::LinearSolver<PassiveT> solver;
 
     // Optimization step based off the defined function
-    for (int i = 0; i < 10; ++i) {
+    std::vector<double> convergenceHistory;
+    for (int i = 0; i < numMaxIterations; ++i) {
         auto [f, g, H_proj]      = func.eval_with_hessian_proj(x);
-        Eigen::VectorX<double> d = newton_direction(g, H_proj, solver);
+        Eigen::VectorX<double> d = TinyAD::newton_direction(g, H_proj, solver);
         x                        = TinyAD::line_search(x, d, f, g, func);
-    }
-    Eigen::Matrix<PassiveT, Eigen::Dynamic, 2> UV(V.rows(), 2);
 
-    //Format not weird
+        float convergenceRate = TinyAD::newton_decrement(d, g);
+        convergenceHistory.push_back(convergenceRate);
+        if (convergenceRate < 1e-4) {
+            break;
+        }
+    }
+    std::cout << "  Converged in " << convergenceHistory.size() << " iterations"
+              << std::endl;
+
+    // Format not weird
+    Eigen::Matrix<PassiveT, Eigen::Dynamic, 2> UV(V.rows(), 2);
     for (int i = 0; i < V.rows(); ++i)
         UV.row(i) = x.template segment<2>(2 * i);
+
+    // Check for global UV flip and correct it to ensure consistent orientation.
+    // The symmetric Dirichlet energy is reflection-invariant, so the optimizer
+    // might converge to a flipped solution. We check the orientation of the
+    // resulting UV triangles. Our reference triangles `flattened_ref_triangles`
+    // are constructed to have a positive determinant, so we expect the UV
+    // triangles to also have positive determinants.
+    if (shouldCheckForFlip) {
+        for (int i = 0; i < F.rows(); ++i) {
+            Eigen::Vector2<PassiveT> p0 = UV.row(F(i, 0));
+            Eigen::Vector2<PassiveT> p1 = UV.row(F(i, 1));
+            Eigen::Vector2<PassiveT> p2 = UV.row(F(i, 2));
+            // Signed area is 0.5 * det([p1-p0, p2-p0]). We only need the sign
+            // of the determinant.
+            PassiveT det = (p1.x() - p0.x()) * (p2.y() - p0.y()) -
+                           (p1.y() - p0.y()) * (p2.x() - p0.x());
+            if (det < 0) {
+                // If more than half of the triangles are flipped, we flip the
+                // entire UV map's V-coordinate.
+                std::cout << "  Parametrization was flipped, correcting."
+                          << std::endl;
+                UV.col(1) *= -1.0;
+                break;
+            }
+        }
+    }
+
     return UV;
 }

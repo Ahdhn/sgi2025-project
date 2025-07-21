@@ -5,19 +5,27 @@
 #include <iostream>
 
 #include "indicatorFunctions.h"
+#include "stb_image.h"
 #include "utils.h"
 
 namespace locremesh {
+
 class Mesh
 {
    public:
     Mesh() = default;
 
-    Mesh(std::string filename, std::string polyscopeID = "mesh")
+    Mesh(std::string meshFilename,
+         std::string textureFilename,
+         std::string polyscopeID = "mesh")
         : m_polyscopeID(polyscopeID)
     {
-        if (!igl::read_triangle_mesh(filename, m_vertices, m_faces)) {
-            throw std::runtime_error("Could not load mesh from " + filename);
+        if (!igl::read_triangle_mesh(meshFilename, m_vertices, m_faces)) {
+            throw std::runtime_error("Could not load mesh from " +
+                                     meshFilename);
+        }
+        if (!textureFilename.empty()) {
+            loadTexture(textureFilename);
         }
         calculateMeshQuality();
         calculateUVParametrization();
@@ -38,18 +46,25 @@ class Mesh
           m_faces(other.m_faces),
           m_quality(other.m_quality),
           m_uvCoords(other.m_uvCoords),
-          m_boundaryBitMask(other.m_boundaryBitMask)
+          m_boundaryBitMask(other.m_boundaryBitMask),
+          m_textureWidth(other.m_textureWidth),
+          m_textureHeight(other.m_textureHeight),
+          m_textureChannels(other.m_textureChannels),
+          m_textureColor(other.m_textureColor)
     {
     }
 
+    void loadTexture(std::string textureFilename);
+    void calculateMeshQuality();
+    void calculateUVParametrization(bool useCurrentUV = true);
+    void identifyBoundaryVertices();
+    void updateVertexPositions(Eigen::MatrixXd& newVertices);
 
     polyscope::SurfaceMesh* polyscopeRegisterSurfaceMesh();
-    void                    calculateMeshQuality();
-    void                    calculateUVParametrization();
-    void                    identifyBoundaryVertices();
     std::set<int>           getVertexNeighbors(int vertexIdx);
 
-    // Get methods -------------------------------------------------------------
+    // Get methods
+    // -------------------------------------------------------------
     const int getVertexCount() const
     {
         return m_vertices.rows();
@@ -94,18 +109,36 @@ class Mesh
     {
         return m_polyscopeID;
     }
+
     void setPolyscopeID(std::string polyscopeID)
     {
         m_polyscopeID = polyscopeID;
     }
+    void setParamatrizationIterations(int iterations)
+    {
+        m_parametrizationIterations = iterations;
+    }
 
 
    private:
-    std::string       m_polyscopeID;
     Eigen::MatrixXd   m_vertices;
     Eigen::MatrixXi   m_faces;
     Eigen::VectorXd   m_quality;
     Eigen::MatrixXd   m_uvCoords;
     std::vector<bool> m_boundaryBitMask;
+
+    // Polyscope
+    std::string m_polyscopeID;
+
+    // Parametrization
+    int m_parametrizationIterations = 10;
+
+    // Texture
+    int m_textureWidth;
+    int m_textureHeight;
+    int m_textureChannels;
+    std::vector<std::array<float, 3>>
+        m_textureColor;  // The actual texture pixel data
 };
+
 }  // namespace locremesh

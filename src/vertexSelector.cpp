@@ -2,22 +2,64 @@
 
 namespace locremesh {
 
+/**
+ * Sets the feature vector for the remesh_botsch function.
+ * It is essentially the list of indices of the vertices we don't want to be
+ * altered during the remeshing.
+ */
+Eigen::VectorXi VertexSelector::extractFeatureFromSelection()
+{
+    std::set<int> verticesToIgnore;
+
+    auto boundaryBitMask = m_targetMesh.getBoundaryBitMask();
+    for (int i = 0; i < m_selectionBitMask.size(); i++) {
+        if (!m_selectionBitMask[i] || boundaryBitMask[i]) {
+            verticesToIgnore.insert(i);
+        }
+    }
+
+    Eigen::VectorXi feature(verticesToIgnore.size());
+    for (int i = 0; auto idx : verticesToIgnore) {
+        feature[i++] = idx;
+    }
+
+    return feature;
+}
+
+void VertexSelector::clearSelection()
+{
+    m_selectionBitMask.assign(m_selectionBitMask.size(), false);
+    if (polyscope::hasPointCloud(m_selectedVerticesPointCloudPSID)) {
+        polyscope::removePointCloud(m_selectedVerticesPointCloudPSID);
+    }
+    m_wasSelectionModified = true;
+}
+
+void VertexSelector::updateTargetMesh(Mesh& targetMesh)
+{
+    m_targetMesh = targetMesh;
+    clearSelection();
+}
+
 void VertexSelector::selectVerticesBasedOnQuality()
 {
     m_selectionBitMask.assign(m_targetMesh.getVertexCount(), false);
     const Eigen::VectorXd& quality = m_targetMesh.getQuality();
+    const std::vector<bool>& boundaryBitMask = m_targetMesh.getBoundaryBitMask();
     for (int i = 0; i < quality.size(); ++i) {
         if (quality[i] <= m_qualityThreshold) {
             auto face                   = m_targetMesh.getFaces().row(i);
-            m_selectionBitMask[face[0]] = true;
-            m_selectionBitMask[face[1]] = true;
-            m_selectionBitMask[face[2]] = true;
+            if (!boundaryBitMask[face[0]] && !boundaryBitMask[face[1]] && !boundaryBitMask[face[2]]) {
+ m_selectionBitMask[face[0]] = true;
+ m_selectionBitMask[face[1]] = true;
+ m_selectionBitMask[face[2]] = true;
+            }
         }
     }
     m_wasSelectionModified = true;
 }
 
-void VertexSelector::updateSelectedVertices()
+void VertexSelector::polyscopeUpdatePointCloud()
 {
     // Clear previous data
     std::set<int> selectedVertices;
@@ -38,7 +80,6 @@ void VertexSelector::updateSelectedVertices()
         }
         m_selectedVerticesStr = ss.str();
     }
-
 
     if (polyscope::hasPointCloud(m_selectedVerticesPointCloudPSID)) {
         polyscope::removePointCloud(m_selectedVerticesPointCloudPSID);
@@ -114,44 +155,40 @@ void VertexSelector::handleManualVertexSelection(ImGuiIO& io)
 void VertexSelector::polyscopeUISection()
 {
     ImGui::Text("Vertex Selection");
-    ImGui::SameLine();
-    ImGui::TextDisabled("(help)");
-    if (ImGui::IsItemHovered()) {
-        ImGui::BeginTooltip();
-        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
-        ImGui::TextUnformatted("ALT+Click on a vertex to select it.");
-        ImGui::TextUnformatted(
-            "CTRL+Click on a face to select all its vertices.");
-        ImGui::PopTextWrapPos();
-        ImGui::EndTooltip();
-    }
+    // ImGui::SameLine();
+    // ImGui::TextDisabled("(help)");
+    // if (ImGui::IsItemHovered()) {
+    //     ImGui::BeginTooltip();
+    //     ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+    //     ImGui::TextUnformatted("ALT+Click on a vertex to select it.");
+    //     ImGui::TextUnformatted(
+    //         "CTRL+Click on a face to select all its vertices.");
+    //     ImGui::PopTextWrapPos();
+    //     ImGui::EndTooltip();
+    // }
 
-    if (ImGui::CollapsingHeader("Selected Vertices")) {
-        ImGui::TextWrapped("%s", m_selectedVerticesStr.c_str());
-    }
+    // if (ImGui::CollapsingHeader("Selected Vertices")) {
+    //     ImGui::TextWrapped("%s", m_selectedVerticesStr.c_str());
+    // }
 
-    if (ImGui::Button("Select All")) {
-        m_selectionBitMask.assign(m_targetMesh.getVertexCount(), true);
-        m_wasSelectionModified = true;
-    }
+    // if (ImGui::Button("Select All")) {
+    //     m_selectionBitMask.assign(m_targetMesh.getVertexCount(), true);
+    //     m_wasSelectionModified = true;
+    // }
 
-    if (ImGui::Button("Apply One-Ring Dilation")) {
-        applyOneRingDilation();
-    }
+    // if (ImGui::Button("Apply One-Ring Dilation")) {
+    //     applyOneRingDilation();
+    // }
 
     ImGui::SliderFloat(
         "Quality Threshold", &m_qualityThreshold, 0.0f, 1.0f, "%.2f");
 
-    if (ImGui::Button("Select Based on Quality")) {
-        selectVerticesBasedOnQuality();
-    }
+    // if (ImGui::Button("Select Based on Quality")) {
+    //     selectVerticesBasedOnQuality();
+    // }
 
     if (ImGui::Button("Clear Selection")) {
-        m_selectionBitMask.assign(m_selectionBitMask.size(), false);
-        if (polyscope::hasPointCloud(m_selectedVerticesPointCloudPSID)) {
-            polyscope::removePointCloud(m_selectedVerticesPointCloudPSID);
-        }
-        m_wasSelectionModified = true;
+        clearSelection();
     }
 
     ImGui::Separator();

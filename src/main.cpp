@@ -1,4 +1,5 @@
 #include <Eigen/Core>
+#include <chrono>
 #include <iostream>
 
 #include "igl/boundary_loop.h"
@@ -16,62 +17,140 @@
 
 int main(int argc, char* argv[])
 {
-    if (argc != 2) {
+    if (argc == 1) {
         std::cout << R"(No input specified: "./LocRemesh mesh.ext" )";
         return 0;
     }
 
     // Configurations //////////////////////////////////////////////////////////
     std::string inputMeshFilename = argv[1];
+    std::string inputTextureFilename;
+    if (argc > 2) {
+        inputTextureFilename = argv[2];
+    }
+
+    float defaultQualityThreshold = 0.4;
+    float defaultTargetEdgeLength = 0.06;
+    int   defaultNumIterations    = 10;
 
     // The Mesh holds the input mesh data
-    locremesh::Mesh inputMesh(inputMeshFilename, "inputMesh");
+    locremesh::Mesh inputMesh(
+        inputMeshFilename, inputTextureFilename, "inputMesh");
 
     // The VertexSelector takes the Mesh and then handles the selection of
     // vertices that must be included in the remeshing stage.
     // It handles both the UI selection and the automated vertex selection.
-    locremesh::VertexSelector vertexSelector(inputMesh);
+    locremesh::VertexSelector vertexSelector(inputMesh,
+                                             defaultQualityThreshold);
 
     // The BotschRemeser takes the VertexSelector and uses it to drive the
     // remeshing procedures.
-    locremesh::BotschRemesher botschRemesher(vertexSelector, 0.05, 10, true);
+    locremesh::BotschRemesher botschRemesher(
+        vertexSelector, defaultTargetEdgeLength, defaultNumIterations, true);
 
     // Polyscope Callback //////////////////////////////////////////////////////
-    // This polyscope callback is where all UI related things are dealt with.
-    polyscope::state::userCallback = [&]() {
-        vertexSelector.handleManualVertexSelection(ImGui::GetIO());
+    // Physics simulation variables
+    float  spatialFrequency             = 15.f;
+    float  updatesPerSecond             = 30.f;
+    float  amplitude                    = 0.1f;
+    int    numParamIterations           = 10;
+    int    numOneRingDilationIterations = 2;
+    bool   autoRemeshing                = false;
+    bool   autoParametrization          = false;
+    bool   runDeformation               = false;
+    double accumulator                  = 0.0;
+    double elapsedTime                  = 0.0;
 
+    polyscope::state::userCallback = [&]() {
+        double dt = 1.f / updatesPerSecond;
+
+        // Fixed timestep physics update.
+        ImGui::Text("Deformation");
+        ImGui::Checkbox("Run sinewave deformation", &runDeformation);
+        ImGui::SliderFloat("Updates per second", &updatesPerSecond, 1.f, 50.f);
+        ImGui::SliderFloat("Spatial Frequency", &spatialFrequency, 0.f, 100.f);
+        ImGui::SliderFloat("Amplitude", &amplitude, 0.f, 1.f);
+
+        ImGui::Checkbox("Auto Remesh", &autoRemeshing);
+        ImGui::Checkbox("Auto Parametrization", &autoParametrization);
+        if (ImGui::SliderInt("Param Iterations", &numParamIterations, 1, 30)) {
+            inputMesh.setParamatrizationIterations(numParamIterations);
+        }
+        if (ImGui::SliderInt("One-ring Dilation degree",
+                             &numOneRingDilationIterations,
+                             1,
+                             5))
+            ;
+
+        // The accumulator is used to ensure that the physics simulation is
+        // updated at a fixed rate, regardless of the frame rate.
+        accumulator += ImGui::GetIO().DeltaTime;
+        elapsedTime += ImGui::GetIO().DeltaTime;
+        while (accumulator >= dt && runDeformation) {
+            // Here is where the simulation will take place.
+            std::cout << "Update timestep: " << accumulator << std::endl;
+
+            if (autoRemeshing) {
+                // Run remeshing for selected vertices in the previous update.
+                botschRemesher.remesh();
+                inputMesh.calculateUVParametrization(false);
+            }
+
+            // While the mass-spring simulation isn't ready, we move the mesh
+            // by going through the vertices and updating their z position
+            // according to a sine function
+            Eigen::MatrixXd newVertices = inputMesh.getVertices();
+            for (int i = 0; i < newVertices.rows(); ++i) {
+                newVertices(i, 2) =
+                    amplitude * std::sin(newVertices(i, 0) * spatialFrequency +
+                                         elapsedTime / 1.5);
+            }
+
+            inputMesh.updateVertexPositions(newVertices);
+            inputMesh.calculateMeshQuality();
+
+            if (autoRemeshing) {
+                vertexSelector.selectVerticesBasedOnQuality();
+                for (int i = 0; i < numOneRingDilationIterations; ++i) {
+                    vertexSelector.applyOneRingDilation();
+                }
+            }
+
+            if (autoParametrization && !autoRemeshing) {
+                inputMesh.calculateUVParametrization(true);
+            }
+
+            // Re-register the entire polyscope surface. (Not ideal but will do
+            // for now)
+            inputMesh.polyscopeRegisterSurfaceMesh();
+
+            // run the remeshing based on quality..
+            // botschRemesher.remesh();
+
+            accumulator = 0;
+
+            std::cout << std::endl;
+        }
+        ImGui::Separator();
+
+        // vertexSelector.handleManualVertexSelection(ImGui::GetIO());
+
+        vertexSelector.polyscopeUpdatePointCloud();
         vertexSelector.polyscopeUISection();
         botschRemesher.polyscopeUISection();
 
-        if (vertexSelector.wasSelectionModified())
-            vertexSelector.updateSelectedVertices();
+        // if (vertexSelector.getWasSelectionModified())
+        //     vertexSelector.polyscopeUpdatePointCloud();
+        polyscope::options::automaticallyComputeSceneExtents = false;
     };
 
     // Polyscope loop //////////////////////////////////////////////////////////
     polyscope::init();
 
-    // Register the initial mesh in polyscope
+
     inputMesh.polyscopeRegisterSurfaceMesh();
-    // equivalent to polyscope::show()
-    while (!polyscope::windowRequestsClose()) {
-        // Here is where the simulation will take place.
 
-        // run mass-spring simulation on the mesh...
-        // runMassSpringTimestep(inputMesh);
-
-        // update mesh...
-        // inputMesh.calculateMeshQuality();
-        // inputMesh.calculateUVParametrization();
-
-        // run the remeshing based on quality...
-        // vertexSelector.selectVerticesBasedOnQuality();
-        // botschRemesher.remesh();
-        // inputMesh.polyscopeRegisterSurfaceMesh(); // Temporary
-
-        // Update polyscope
-        polyscope::frameTick();
-    }
+    polyscope::show();
 
     return 0;
 }

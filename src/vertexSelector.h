@@ -17,16 +17,21 @@ namespace locremesh {
 class VertexSelector
 {
    public:
-    VertexSelector(Mesh& targetMesh) : m_targetMesh(targetMesh)
+    VertexSelector(Mesh& targetMesh, float qualityThreshold=0.4) : m_targetMesh(targetMesh),
+    m_qualityThreshold(qualityThreshold)
     {
         m_selectionBitMask.assign(m_targetMesh.getVertexCount(), false);
     }
 
     void applyOneRingDilation();
     void selectVerticesBasedOnQuality();
-    void updateSelectedVertices();
+    void polyscopeUpdatePointCloud();
     void handleManualVertexSelection(ImGuiIO& io);
     void polyscopeUISection();
+    void clearSelection();
+    void updateTargetMesh(Mesh& targetMesh);
+
+    Eigen::VectorXi extractFeatureFromSelection();
 
     // Get methods -------------------------------------------------------------
     Mesh& getTargetMesh()
@@ -45,7 +50,7 @@ class VertexSelector
     {
         return m_selectedVerticesStr;
     }
-    bool wasSelectionModified() const
+    bool getWasSelectionModified() const
     {
         return m_wasSelectionModified;
     }
@@ -58,13 +63,18 @@ class VertexSelector
         return m_selectionBitMask;
     }
 
+    void setWasSelectionModified(bool wasSelectionModified)
+    {
+        m_wasSelectionModified = wasSelectionModified;
+    }
+
    private:
     Mesh&             m_targetMesh;
     std::string       m_selectedVerticesPointCloudPSID = "selectedVertices";
     std::string       m_selectedVerticesStr;
     bool              m_wasSelectionModified = false;
     std::vector<bool> m_selectionBitMask;
-    float             m_qualityThreshold = 0.2;
+    float             m_qualityThreshold;
 };
 
 }  // namespace locremesh

@@ -28,18 +28,16 @@ class BotschRemesher
     {
     }
 
-    void setFeature();
     void remesh(std::string resultingMeshPolyscopeID = "botschRemeshed");
     void polyscopeUISection();
 
    public:
     VertexSelector& m_vertexSelector;
     Mesh&           m_resultingMesh;
-    bool            m_keepOriginalMesh = true;
+    bool            m_keepOriginalMesh = false;
     float           m_targetEdgeLength;
     int             m_iterations;
     bool            m_shouldProject;
-    Eigen::VectorXi m_feature;
 };
 
 };  // namespace locremesh
