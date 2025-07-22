@@ -13,9 +13,8 @@ Eigen::Matrix<PassiveT, Eigen::Dynamic, 2> param(
     Eigen::MatrixXd&       previousParam,
     const int              numMaxIterations = 30)
 {
-    bool shouldCheckForFlip = true;
     if (previousParam.size() == 0) {
-        previousParam = tutte_embedding(V, F);
+        previousParam      = tutte_embedding(V, F);
     }
 
     // Define the local coordinates for ach triangle using the first vector and
@@ -100,23 +99,19 @@ Eigen::Matrix<PassiveT, Eigen::Dynamic, 2> param(
     // resulting UV triangles. Our reference triangles `flattened_ref_triangles`
     // are constructed to have a positive determinant, so we expect the UV
     // triangles to also have positive determinants.
-    if (shouldCheckForFlip) {
-        for (int i = 0; i < F.rows(); ++i) {
-            Eigen::Vector2<PassiveT> p0 = UV.row(F(i, 0));
-            Eigen::Vector2<PassiveT> p1 = UV.row(F(i, 1));
-            Eigen::Vector2<PassiveT> p2 = UV.row(F(i, 2));
-            // Signed area is 0.5 * det([p1-p0, p2-p0]). We only need the sign
-            // of the determinant.
-            PassiveT det = (p1.x() - p0.x()) * (p2.y() - p0.y()) -
-                           (p1.y() - p0.y()) * (p2.x() - p0.x());
-            if (det < 0) {
-                // If more than half of the triangles are flipped, we flip the
-                // entire UV map's V-coordinate.
-                std::cout << "  Parametrization was flipped, correcting."
-                          << std::endl;
-                UV.col(1) *= -1.0;
-                break;
-            }
+    for (int i = 0; i < F.rows(); ++i) {
+        Eigen::Vector2<PassiveT> p0 = UV.row(F(i, 0));
+        Eigen::Vector2<PassiveT> p1 = UV.row(F(i, 1));
+        Eigen::Vector2<PassiveT> p2 = UV.row(F(i, 2));
+        // Signed area is 0.5 * det([p1-p0, p2-p0]). We only need the sign
+        // of the determinant.
+        PassiveT det = (p1.x() - p0.x()) * (p2.y() - p0.y()) -
+                       (p1.y() - p0.y()) * (p2.x() - p0.x());
+        if (det < 0) {
+            std::cout << "  Parametrization was flipped, correcting."
+                      << std::endl;
+            UV.col(1) *= -1.0;
+            break;
         }
     }
 
