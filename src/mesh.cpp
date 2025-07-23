@@ -115,10 +115,9 @@ void Mesh::calculateUVParametrization(bool useCurrentUV)
     if (uv_range.y() < 1e-10)
         uv_range.y() = 1.0;
 
-    // Apply normalization and flip the V coordinate (v' = 1.0 - v).
+    // Apply normalization
     m_uvCoords.col(0) = (m_uvCoords.col(0).array() - uv_min.x()) / uv_range.x();
     m_uvCoords.col(1) = (m_uvCoords.col(1).array() - uv_min.y()) / uv_range.y();
-    m_uvCoords.col(1) = 1.0 - m_uvCoords.col(1).array();
 
     std::cout << "Finished calculating UV parametrization" << std::endl;
 }

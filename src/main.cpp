@@ -62,6 +62,7 @@ int main(int argc, char* argv[])
     double elapsedTime                  = 0.0;
 
     polyscope::state::userCallback = [&]() {
+        
         double dt = 1.f / updatesPerSecond;
 
         // Fixed timestep physics update.

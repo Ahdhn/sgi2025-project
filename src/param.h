@@ -93,27 +93,5 @@ Eigen::Matrix<PassiveT, Eigen::Dynamic, 2> param(
     for (int i = 0; i < V.rows(); ++i)
         UV.row(i) = x.template segment<2>(2 * i);
 
-    // Check for global UV flip and correct it to ensure consistent orientation.
-    // The symmetric Dirichlet energy is reflection-invariant, so the optimizer
-    // might converge to a flipped solution. We check the orientation of the
-    // resulting UV triangles. Our reference triangles `flattened_ref_triangles`
-    // are constructed to have a positive determinant, so we expect the UV
-    // triangles to also have positive determinants.
-    for (int i = 0; i < F.rows(); ++i) {
-        Eigen::Vector2<PassiveT> p0 = UV.row(F(i, 0));
-        Eigen::Vector2<PassiveT> p1 = UV.row(F(i, 1));
-        Eigen::Vector2<PassiveT> p2 = UV.row(F(i, 2));
-        // Signed area is 0.5 * det([p1-p0, p2-p0]). We only need the sign
-        // of the determinant.
-        PassiveT det = (p1.x() - p0.x()) * (p2.y() - p0.y()) -
-                       (p1.y() - p0.y()) * (p2.x() - p0.x());
-        if (det < 0) {
-            std::cout << "  Parametrization was flipped, correcting."
-                      << std::endl;
-            UV.col(1) *= -1.0;
-            break;
-        }
-    }
-
     return UV;
 }
