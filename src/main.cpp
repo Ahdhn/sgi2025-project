@@ -51,43 +51,44 @@ int main(int argc, char* argv[])
     // Polyscope Callback //////////////////////////////////////////////////////
     // Physics simulation variables
     float  spatialFrequency             = 15.f;
-    float  updatesPerSecond             = 30.f;
+    float  updatesPerSecond             = 50.f;
     float  amplitude                    = 0.1f;
-    int    numParamIterations           = 10;
-    int    numOneRingDilationIterations = 2;
+    int    numMaxParamIterations        = 15;
+    int    numOneRingDilationIterations = 5;
     bool   autoRemeshing                = false;
     bool   autoParametrization          = false;
     bool   runDeformation               = false;
     double accumulator                  = 0.0;
-    double elapsedTime                  = 0.0;
+    double simulatedTime                = 0.0;
 
     polyscope::state::userCallback = [&]() {
-        
         double dt = 1.f / updatesPerSecond;
 
         // Fixed timestep physics update.
+        ImGui::Text("Stats");
+        ImGui::Text("Simulated Time: %.2f", simulatedTime);
+        ImGui::Separator();
+
         ImGui::Text("Deformation");
         ImGui::Checkbox("Run sinewave deformation", &runDeformation);
-        ImGui::SliderFloat("Updates per second", &updatesPerSecond, 1.f, 50.f);
+        ImGui::SliderFloat("Updates per second", &updatesPerSecond, 1.f, 100.f);
         ImGui::SliderFloat("Spatial Frequency", &spatialFrequency, 0.f, 100.f);
         ImGui::SliderFloat("Amplitude", &amplitude, 0.f, 1.f);
 
         ImGui::Checkbox("Auto Remesh", &autoRemeshing);
         ImGui::Checkbox("Auto Parametrization", &autoParametrization);
-        if (ImGui::SliderInt("Param Iterations", &numParamIterations, 1, 30)) {
-            inputMesh.setParamatrizationIterations(numParamIterations);
+        if (ImGui::SliderInt(
+                "Max Param Iterations", &numMaxParamIterations, 1, 15)) {
+            inputMesh.setParamatrizationIterations(numMaxParamIterations);
         }
-        if (ImGui::SliderInt("One-ring Dilation degree",
-                             &numOneRingDilationIterations,
-                             1,
-                             5))
-            ;
+        ImGui::SliderInt(
+            "One-ring Dilation degree", &numOneRingDilationIterations, 1, 10);
 
         // The accumulator is used to ensure that the physics simulation is
         // updated at a fixed rate, regardless of the frame rate.
         accumulator += ImGui::GetIO().DeltaTime;
-        elapsedTime += ImGui::GetIO().DeltaTime;
         while (accumulator >= dt && runDeformation) {
+            simulatedTime += dt;
             // Here is where the simulation will take place.
             std::cout << "Update timestep: " << accumulator << std::endl;
 
@@ -104,7 +105,7 @@ int main(int argc, char* argv[])
             for (int i = 0; i < newVertices.rows(); ++i) {
                 newVertices(i, 2) =
                     amplitude * std::sin(newVertices(i, 0) * spatialFrequency +
-                                         elapsedTime / 1.5);
+                                         simulatedTime / 1.5);
             }
 
             inputMesh.updateVertexPositions(newVertices);
